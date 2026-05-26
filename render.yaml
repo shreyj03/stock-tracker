@@ -13,6 +13,13 @@ services:
       python manage.py collectstatic --no-input
       python manage.py migrate
       python manage.py seed_stocks
+      # If SEED_GIST_RAW_URL is set, fetch and run the private fake-data seed script.
+      # Set this env var once in the Render dashboard, trigger a deploy, then remove it.
+      if [ -n "$SEED_GIST_RAW_URL" ]; then
+        echo "Seeding fake user data..."
+        curl -fsSL "$SEED_GIST_RAW_URL" | python manage.py shell
+        echo "Fake user seed complete."
+      fi
     startCommand: gunicorn stock_tracker.wsgi:application --workers 2 --timeout 120
     envVars:
       - key: PYTHON_VERSION
