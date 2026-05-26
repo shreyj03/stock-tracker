@@ -2,6 +2,8 @@
 
 A Django web app for tracking stock portfolios with live market data. Users can browse stocks, log buy/sell transactions, monitor P&L in real time, and maintain a personal watchlist.
 
+> Built as the final project for **CS 412 — Full Stack Engineering** at Boston University.
+
 **🔗 Live Demo:** [stock-tracker-ofog.onrender.com](https://stock-tracker-ofog.onrender.com)
 
 > **Demo account:** username `alex_trader` · password `demo1234!`
