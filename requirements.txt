@@ -1,0 +1,23 @@
+# Web framework
+Django>=6.0
+
+# Production WSGI server
+gunicorn>=21.2
+
+# Static file serving in production
+whitenoise>=6.6
+
+# PostgreSQL adapter (binary wheel — no libpq install required on Render)
+psycopg2-binary>=2.9
+
+# Database URL parsing  (DATABASE_URL → Django DATABASES dict)
+dj-database-url>=2.1
+
+# Stock data
+yfinance>=0.2
+
+# Data manipulation (required by yfinance and portfolio charting)
+pandas>=2.0
+
+# Image handling
+Pillow>=10.0

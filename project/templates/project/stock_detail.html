@@ -1,0 +1,84 @@
+<!-- project/templates/project/stock_detail.html -->
+<!-- Shrey Jain, shreyj@bu.edu, 4/27/2026 -->
+<!-- Displays details for a single stock including live price, chart, and transactions. -->
+{% extends 'project/base.html' %}
+{% block content %}
+<h1>{{ stock.ticker }} - {{ stock.company_name }}</h1>
+{% if live_price %}
+<p>
+    <strong>Live Price:</strong> ${{ live_price }}
+    {% if price_change >= 0 %}
+        <span style="color: green;">▲ ${{ price_change }} ({{ price_change_pct }}%)</span>
+    {% else %}
+        <span style="color: red;">▼ ${{ price_change }} ({{ price_change_pct }}%)</span>
+    {% endif %}
+</p>
+{% endif %}
+<p><strong>Sector:</strong> {{ stock.sector }}</p>
+<p><strong>Exchange:</strong> {{ stock.exchange }}</p>
+
+{% if request.user.is_authenticated %}
+    <a href="{% url 'add-watchlist' stock.pk %}" class="btn">+ Add to Watchlist</a>
+    <a href="{% url 'add-transaction' %}" class="btn" style="margin-left:10px;">Log Transaction</a>
+{% endif %}
+
+<!-- Chart added with the help of claude -->
+
+{% if chart_dates %}
+<h2>6 Month Price History</h2>
+<canvas id="priceChart" style="max-height:300px;"></canvas>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const ctx = document.getElementById('priceChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: {{ chart_dates|safe }},
+            datasets: [{
+                label: '{{ stock.ticker }} Close Price',
+                data: {{ chart_prices|safe }},
+                borderColor: '#1a1a2e',
+                backgroundColor: 'rgba(26,26,46,0.1)',
+                pointRadius: 0,
+                tension: 0.1,
+                fill: true,
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { ticks: { maxTicksLimit: 8 } },
+                y: { ticks: { callback: val => '$' + val } }
+            }
+        }
+    });
+</script>
+{% endif %}
+
+{% if request.user.is_authenticated %}
+<h2>Recent Transactions</h2>
+<table>
+    <tr>
+        <th>Type</th>
+        <th>Quantity</th>
+        <th>Price Per Share</th>
+        <th>Date</th>
+    </tr>
+    {% for t in stock.transactions.all %}
+    <tr>
+        <td>{{ t.transaction_type }}</td>
+        <td>{{ t.quantity }}</td>
+        <td>${{ t.price_per_share }}</td>
+        <td>{{ t.date }}</td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="4">No transactions yet.</td></tr>
+    {% endfor %}
+</table>
+{% else %}
+<p><a href="{% url 'login' %}">Login</a> to view transaction history.</p>
+{% endif %}
+<br>
+<a href="{% url 'stock-list' %}" class="btn">Back to Stocks</a>
+{% endblock %}

@@ -1,0 +1,13 @@
+<!-- project/templates/project/edit_profile.html -->
+<!-- Shrey Jain, shreyj@bu.edu, 4/27/2026 -->
+<!-- Form to edit a user profile. -->
+{% extends 'project/base.html' %}
+{% block content %}
+<h1>Edit Profile</h1>
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="btn">Save</button>
+    <a href="{% url 'profile-detail' profile.pk %}" style="margin-left:10px;">Cancel</a>
+</form>
+{% endblock %}

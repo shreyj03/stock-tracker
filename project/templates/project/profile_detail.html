@@ -1,0 +1,128 @@
+<!-- project/templates/project/profile_detail.html -->
+<!-- Shrey Jain, shreyj@bu.edu, 4/27/2026 -->
+<!-- Displays a user profile with watchlist and transactions. -->
+{% extends 'project/base.html' %}
+{% block content %}
+<h1>{{ profile.user.username }}</h1>
+{% if profile.profile_image_url %}
+    <img src="{{ profile.profile_image_url }}" alt="Profile Picture" style="width:100px; height:100px; border-radius:50%; object-fit:cover; margin-bottom:10px;">
+{% endif %}
+<p><strong>Bio:</strong> {{ profile.bio }}</p>
+<a href="{% url 'edit-profile' profile.pk %}" class="btn">Edit Profile</a>
+<h2>Portfolio Summary</h2>
+<table>
+    <tr>
+        <th>Total Invested</th>
+        <th>Current Value</th>
+        <th>Overall P&L</th>
+    </tr>
+    <tr>
+        <td>${{ total_invested }}</td>
+        <td>${{ total_current_value }}</td>
+        <td>
+            {% if total_pnl >= 0 %}
+                <span style="color:green;">+${{ total_pnl }}</span>
+            {% else %}
+                <span style="color:red;">-${{ total_pnl|slice:"1:" }}</span>
+            {% endif %}
+        </td>
+    </tr>
+</table>
+
+<!-- Chart added with the help of claude -->
+{% if portfolio_chart_dates %}
+  <h2>Portfolio Value Over Time</h2>
+  <canvas id="portfolioChart" style="max-height:300px;"></canvas>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script>
+      const pctx = document.getElementById('portfolioChart').getContext('2d');
+      new Chart(pctx, {
+          type: 'line',
+          data: {
+              labels: {{ portfolio_chart_dates|safe }},
+              datasets: [{
+                  label: 'Portfolio Value',
+                  data: {{ portfolio_chart_values|safe }},
+                  borderColor: '#1a1a2e',
+                  backgroundColor: 'rgba(26,26,46,0.1)',
+                  pointRadius: 0,
+                  tension: 0.1,
+                  fill: true,
+              }]
+          },
+          options: {
+              responsive: true,
+              plugins: { legend: { display: false } },
+              scales: {
+                  x: { ticks: { maxTicksLimit: 8 } },
+                  y: { ticks: { callback: val => '$' + val } }
+              }
+          }
+      });
+  </script>
+  {% endif %}
+
+<h2>Watchlist</h2>
+<table>
+    <tr>
+        <th>Ticker</th>
+        <th>Company</th>
+        <th>Live Price</th>
+        <th>Date Added</th>
+        <th>Action</th>
+    </tr>
+    {% for w in profile.watchlist.all %}
+    <tr>
+        <td><a href="{% url 'stock-detail' w.stock.pk %}">{{ w.stock.ticker }}</a></td>
+        <td>{{ w.stock.company_name }}</td>
+        <td>
+            {% for ticker, price in watchlist_prices.items %}
+                {% if ticker == w.stock.ticker %}
+                    {% if price %}${{ price }}{% else %}N/A{% endif %}
+                {% endif %}
+            {% endfor %}
+        </td>
+        <td>{{ w.date_added }}</td>
+        <td><a href="{% url 'delete-watchlist' w.pk %}" style="color:red;">Remove</a></td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="4">No stocks in watchlist.</td></tr>
+    {% endfor %}
+</table>
+<h2>Transactions</h2>
+<a href="{% url 'add-transaction' %}" class="btn">Log Transaction</a>
+<table>
+    <tr>
+        <th>Ticker</th>
+        <th>Type</th>
+        <th>Quantity</th>
+        <th>Price Per Share</th>
+        <th>Live Price</th>
+        <th>P&L</th>
+        <th>Date</th>
+        <th>Action</th>
+    </tr>
+    {% for item in transaction_data %}
+    <tr>
+        <td><a href="{% url 'stock-detail' item.transaction.stock.pk %}">{{ item.transaction.stock.ticker }}</a></td>
+        <td>{{ item.transaction.transaction_type }}</td>
+        <td>{{ item.transaction.quantity }}</td>
+        <td>${{ item.transaction.price_per_share }}</td>
+        <td>{% if item.live_price %}${{ item.live_price }}{% else %}N/A{% endif %}</td>
+        <td>
+            {% if item.pnl is not None %}
+                {% if item.pnl >= 0 %}
+                    <span style="color:green;">+${{ item.pnl }}</span>
+                {% else %}
+                    <span style="color:red;">-${{ item.pnl|slice:"1:" }}</span>
+                {% endif %}
+            {% else %}
+                N/A
+            {% endif %}
+        </td>
+        <td>{{ item.transaction.date }}</td>
+        <td><a href="{% url 'delete-transaction' item.transaction.pk %}" style="color:red;">Delete</a></td>
+    </tr>
+    {% endfor %}
+</table>
+{% endblock %}

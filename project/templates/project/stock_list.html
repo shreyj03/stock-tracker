@@ -1,0 +1,36 @@
+<!-- project/templates/project/stock_list.html -->
+<!-- Shrey Jain, shreyj@bu.edu, 4/27/2026 -->
+<!-- Displays a searchable, filterable list of stocks. -->
+{% extends 'project/base.html' %}
+{% block content %}
+<h1>Stocks</h1>
+<form method="get">
+    <input type="text" name="q" value="{{ current_q }}" placeholder="Search ticker or company..." style="padding:8px; width:250px; margin-right:10px;">
+    <select name="sector" style="padding:8px; margin-right:10px;">
+        <option value="">All Sectors</option>
+        {% for sector in sectors %}
+            <option value="{{ sector }}" {% if sector == current_sector %}selected{% endif %}>{{ sector }}</option>
+        {% endfor %}
+    </select>
+    <button type="submit" class="btn">Search</button>
+    <a href="{% url 'stock-list' %}" style="margin-left:10px;">Clear</a>
+</form>
+<table>
+    <tr>
+        <th>Ticker</th>
+        <th>Company</th>
+        <th>Sector</th>
+        <th>Exchange</th>
+    </tr>
+    {% for stock in stocks %}
+    <tr>
+        <td><a href="{% url 'stock-detail' stock.pk %}">{{ stock.ticker }}</a></td>
+        <td>{{ stock.company_name }}</td>
+        <td>{{ stock.sector }}</td>
+        <td>{{ stock.exchange }}</td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="4">No stocks found.</td></tr>
+    {% endfor %}
+</table>
+{% endblock %}

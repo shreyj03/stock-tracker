@@ -1,0 +1,13 @@
+<!-- project/templates/project/add_watchlist.html -->
+<!-- Shrey Jain, shreyj@bu.edu, 4/27/2026 -->
+<!-- Confirmation page for adding a stock to the watchlist. -->
+{% extends 'project/base.html' %}
+{% block content %}
+<h1>Add to Watchlist</h1>
+<p>Add <strong>{{ stock.ticker }} - {{ stock.company_name }}</strong> to your watchlist?</p>
+<form method="post">
+    {% csrf_token %}
+    <button type="submit" class="btn">Add</button>
+    <a href="{% url 'stock-detail' stock.pk %}" style="margin-left:10px;">Cancel</a>
+</form>
+{% endblock %}

@@ -1,0 +1,56 @@
+<!-- project/templates/project/main.html -->
+<!-- Shrey Jain, shreyj@bu.edu, 4/27/2026 -->
+<!-- Main landing page for the stock portfolio tracker. -->
+{% extends 'project/base.html' %}
+{% block content %}
+<h1>Stock Portfolio Tracker</h1>
+<p>Track your investments, log trades, and monitor your portfolio performance in real time.</p>
+{% if not request.user.is_authenticated %}
+  <p><a href="{% url 'register' %}" class="btn">Create an Account</a> <a href="{% url 'login' %}" style="margin-left:10px;">Already have an account? Login</a></p>
+{% endif %}
+<a href="{% url 'stock-list' %}" class="btn">Browse Stocks</a>
+{% if request.user.is_authenticated and profile_pk %}
+<h2>Your Portfolio</h2>
+<table>
+    <tr>
+        <th>Total Invested</th>
+        <th>Current Value</th>
+        <th>Overall P&L</th>
+    </tr>
+    <tr>
+        <td>${{ total_invested }}</td>
+        <td>${{ total_current_value }}</td>
+        <td>
+            {% if total_pnl >= 0 %}
+                <span style="color:green;">+${{ total_pnl }}</span>
+            {% else %}
+                <span style="color:red;">-${{ total_pnl|slice:"1:" }}</span>
+            {% endif %}
+        </td>
+    </tr>
+</table>
+<a href="{% url 'profile-detail' profile_pk %}" class="btn" style="margin-top:10px; display:inline-block;">View Full Portfolio</a>
+{% endif %}
+
+<h2>Market Overview</h2>
+<table>
+    <tr>
+        <th>Ticker</th>
+        <th>Price</th>
+        <th>Change</th>
+    </tr>
+    {% for stock in market_data %}
+    <tr>
+        <td><a href="{% url 'stock-detail' stock.pk %}"><strong>{{ stock.ticker }}</strong></a></td>
+        <td>${{ stock.price }}</td>
+        <td>
+            {% if stock.change >= 0 %}
+                <span style="color:green;">▲ ${{ stock.change }} ({{ stock.change_pct }}%)</span>
+            {% else %}
+                <span style="color:red;">▼ ${{ stock.change }} ({{ stock.change_pct }}%)</span>
+            {% endif %}
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+{% endblock %}

@@ -1,0 +1,11 @@
+<!-- project/templates/project/watchlist_detail.html -->
+<!-- Shrey Jain, shreyj@bu.edu, 4/27/2026 -->
+<!-- Displays a single watchlist entry.-->
+{% extends 'project/base.html' %}
+{% block content %}
+<h1>Watchlist Entry</h1>
+<p><strong>User:</strong> {{ watchlist.profile.user.username }}</p>
+<p><strong>Stock:</strong> <a href="{% url 'stock-detail' watchlist.stock.pk %}">{{ watchlist.stock.ticker }}</a></p>
+<p><strong>Date Added:</strong> {{ watchlist.date_added }}</p>
+<a href="{% url 'main' %}" class="btn">Home</a>
+{% endblock %}

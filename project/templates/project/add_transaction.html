@@ -1,0 +1,14 @@
+<!-- project/templates/project/add_transaction.html -->
+<!-- Shrey Jain, shreyj@bu.edu, 4/27/2026 -->
+<!-- Form to log a new buy or sell transaction. -->
+{% extends 'project/base.html' %}
+{% block content %}
+<h1>Log Transaction</h1>
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="btn">Save</button>
+</form>
+<br>
+<a href="{% url 'profile-detail' request.user.project_profile.pk %}">Cancel</a>
+{% endblock %}

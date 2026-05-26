@@ -1,0 +1,14 @@
+<!-- project/templates/project/transaction_detail.html -->
+<!-- Shrey Jain, shreyj@bu.edu, 4/27/2026 -->
+<!-- Displays details for a specific transaction. -->
+{% extends 'project/base.html' %}
+{% block content %}
+<h1>Transaction Detail</h1>
+<p><strong>User:</strong> {{ transaction.profile.user.username }}</p>
+<p><strong>Stock:</strong> <a href="{% url 'stock-detail' transaction.stock.pk %}">{{ transaction.stock.ticker }}</a></p>
+<p><strong>Type:</strong> {{ transaction.transaction_type }}</p>
+<p><strong>Quantity:</strong> {{ transaction.quantity }}</p>
+<p><strong>Price Per Share:</strong> ${{ transaction.price_per_share }}</p>
+<p><strong>Date:</strong> {{ transaction.date }}</p>
+<a href="{% url 'main' %}" class="btn">Home</a>
+{% endblock %}

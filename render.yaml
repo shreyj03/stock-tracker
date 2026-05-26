@@ -1,0 +1,29 @@
+databases:
+  - name: stock-tracker-db
+    databaseName: stock_tracker
+    plan: free
+
+services:
+  - type: web
+    name: stock-tracker
+    runtime: python
+    # Python version — must match what psycopg2-binary ships a wheel for
+    buildCommand: |
+      pip install -r requirements.txt
+      python manage.py collectstatic --no-input
+      python manage.py migrate
+    startCommand: gunicorn stock_tracker.wsgi:application --workers 2 --timeout 120
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: DJANGO_SETTINGS_MODULE
+        value: stock_tracker.settings
+      - key: SECRET_KEY
+        generateValue: true        # Render generates a secure random value
+      - key: DEBUG
+        value: "False"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: stock-tracker-db
+          property: connectionString
+    plan: free
