@@ -21,3 +21,6 @@ pandas>=2.0
 
 # Image handling
 Pillow>=10.0
+
+# Snowflake data warehouse
+snowflake-connector-python>=3.0
