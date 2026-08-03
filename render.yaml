@@ -36,4 +36,16 @@ services:
         fromDatabase:
           name: stock-tracker-db
           property: connectionString
+      - key: SNOWFLAKE_ACCOUNT
+        sync: false
+      - key: SNOWFLAKE_USER
+        sync: false
+      - key: SNOWFLAKE_PASSWORD
+        sync: false
+      - key: SNOWFLAKE_DATABASE
+        value: STOCK_TRACKER
+      - key: SNOWFLAKE_SCHEMA
+        value: PUBLIC
+      - key: SNOWFLAKE_WAREHOUSE
+        value: STOCK_TRACKER_WH
     plan: free
