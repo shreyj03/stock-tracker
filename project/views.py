@@ -4,7 +4,7 @@
 
 from django.shortcuts import render
 from django.views.generic import ListView, DetailView, TemplateView
-from .models import Profile, Stock, Watchlist, Transaction
+from .models import Profile, Stock, Watchlist, Transaction, StockPrice
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login
 from django.contrib import messages
@@ -28,24 +28,20 @@ class MainPageView(TemplateView):
         """Add top stocks with live prices to the landing page."""
         context = super().get_context_data(**kwargs)
         tickers = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'TSLA', 'META', 'JPM']
+        stock_objs = {s.ticker: s for s in Stock.objects.filter(ticker__in=tickers)}
+        price_cache = {sp.stock.ticker: sp for sp in StockPrice.objects.filter(stock__ticker__in=tickers).select_related('stock')}
         market_data = []
         for t in tickers:
-            try:
-                stock_obj = Stock.objects.get(ticker=t)
-                ticker = yf.Ticker(t)
-                info = ticker.fast_info
-                live_price = round(info.last_price, 2)
-                change = round(info.last_price - info.previous_close, 2)
-                change_pct = round(change / info.previous_close * 100, 2)
+            stock_obj = stock_objs.get(t)
+            sp = price_cache.get(t)
+            if stock_obj and sp:
                 market_data.append({
                     'ticker': t,
                     'pk': stock_obj.pk,
-                    'price': live_price,
-                    'change': change,
-                    'change_pct': change_pct,
+                    'price': sp.price,
+                    'change': sp.change,
+                    'change_pct': sp.change_pct,
                 })
-            except:
-                pass
         context['market_data'] = market_data
 
         # portfolio summary for logged in user
@@ -55,17 +51,17 @@ class MainPageView(TemplateView):
                 transactions = profile.transactions.all()
                 total_invested = 0
                 total_current_value = 0
+                txn_tickers = list({t.stock.ticker for t in transactions})
+                txn_price_cache = {sp.stock.ticker: float(sp.price) for sp in StockPrice.objects.filter(stock__ticker__in=txn_tickers).select_related('stock')}
                 for t in transactions:
-                    try:
-                        ticker = yf.Ticker(t.stock.ticker)
-                        live_price = ticker.fast_info.last_price
-                        cost = float(t.price_per_share) * t.quantity
-                        current_value = live_price * t.quantity
-                        if t.transaction_type == 'buy':
-                            total_invested += cost
-                            total_current_value += current_value
-                    except:
-                        pass
+                    live_price = txn_price_cache.get(t.stock.ticker)
+                    if live_price is None:
+                        continue
+                    cost = float(t.price_per_share) * t.quantity
+                    current_value = live_price * t.quantity
+                    if t.transaction_type == 'buy':
+                        total_invested += cost
+                        total_current_value += current_value
                 context['total_invested'] = round(total_invested, 2)
                 context['total_current_value'] = round(total_current_value, 2)
                 context['total_pnl'] = round(total_current_value - total_invested, 2)
@@ -113,20 +109,20 @@ class StockDetailView(DetailView):
         """Add live price and historical chart data from yfinance to the context."""
         context = super().get_context_data(**kwargs)
         try:
-            ticker = yf.Ticker(self.object.ticker)
-            info = ticker.fast_info
-            context['live_price'] = round(info.last_price, 2)
-            context['price_change'] = round(info.last_price - info.previous_close, 2)
-            context['price_change_pct'] = round((info.last_price - info.previous_close) / info.previous_close * 100, 2)
-
-            # get 6 months of historical data
-            hist = ticker.history(period='6mo')
-            context['chart_dates'] = list(hist.index.strftime('%Y-%m-%d'))
-            context['chart_prices'] = [round(p, 2) for p in hist['Close'].tolist()]
-        except:
+            sp = StockPrice.objects.get(stock=self.object)
+            context['live_price'] = sp.price
+            context['price_change'] = sp.change
+            context['price_change_pct'] = sp.change_pct
+        except StockPrice.DoesNotExist:
             context['live_price'] = None
             context['price_change'] = None
             context['price_change_pct'] = None
+
+        try:
+            hist = yf.Ticker(self.object.ticker).history(period='6mo')
+            context['chart_dates'] = list(hist.index.strftime('%Y-%m-%d'))
+            context['chart_prices'] = [round(p, 2) for p in hist['Close'].tolist()]
+        except:
             context['chart_dates'] = []
             context['chart_prices'] = []
         return context
@@ -146,34 +142,31 @@ class ProfileDetailView(DetailView):
         total_invested = 0
         total_current_value = 0
 
+        txn_tickers = list({t.stock.ticker for t in transactions})
+        txn_price_cache = {sp.stock.ticker: sp for sp in StockPrice.objects.filter(stock__ticker__in=txn_tickers).select_related('stock')}
+
         for t in transactions:
-            # try:
-            ticker = yf.Ticker(t.stock.ticker)
-            live_price = round(ticker.fast_info.last_price, 2)
+            sp = txn_price_cache.get(t.stock.ticker)
+            live_price = round(float(sp.price), 2) if sp else None
             cost = round(float(t.price_per_share) * t.quantity, 2)
-            current_value = round(live_price * t.quantity, 2)
-            pnl = round(current_value - cost, 2)
-            if t.transaction_type == 'buy':
-                total_invested += cost
-                total_current_value += current_value
-            # except:
-            #     live_price = None
-            #     pnl = None
-            #     cost = None
-            #     current_value = None
+            if sp:
+                current_value = round(float(sp.price) * t.quantity, 2)
+                pnl = round(current_value - cost, 2)
+                if t.transaction_type == 'buy':
+                    total_invested += cost
+                    total_current_value += current_value
+            else:
+                pnl = None
             transaction_data.append({
                 'transaction': t,
                 'live_price': live_price,
                 'pnl': pnl,
             })
 
-        watchlist_prices = {}
-        for w in self.object.watchlist.all():
-            try:
-                ticker = yf.Ticker(w.stock.ticker)
-                watchlist_prices[w.stock.ticker] = round(ticker.fast_info.last_price, 2)
-            except:
-                watchlist_prices[w.stock.ticker] = None
+        watchlist_items = list(self.object.watchlist.all())
+        wl_tickers = [w.stock.ticker for w in watchlist_items]
+        wl_price_cache = {sp.stock.ticker: round(float(sp.price), 2) for sp in StockPrice.objects.filter(stock__ticker__in=wl_tickers).select_related('stock')}
+        watchlist_prices = {w.stock.ticker: wl_price_cache.get(w.stock.ticker) for w in watchlist_items}
 
         # portfolio value over time chart
         try:

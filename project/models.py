@@ -42,6 +42,18 @@ class Watchlist(models.Model):
         return f'{self.profile.user.username} watching {self.stock.ticker}'
 
 
+class StockPrice(models.Model):
+    """Cached live price for a stock, updated by the fetch_prices ETL command."""
+    stock = models.OneToOneField(Stock, on_delete=models.CASCADE, related_name='cached_price')
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    change = models.DecimalField(max_digits=10, decimal_places=2)
+    change_pct = models.DecimalField(max_digits=6, decimal_places=2)
+    fetched_at = models.DateTimeField()
+
+    def __str__(self):
+        return f'{self.stock.ticker} @ {self.price}'
+
+
 class Transaction(models.Model):
     """Represents a buy or sell transaction by a user for a stock."""
     BUY = 'buy'
