@@ -13,6 +13,7 @@ services:
       python manage.py collectstatic --no-input
       python manage.py migrate
       python manage.py seed_stocks
+      python manage.py fetch_prices
       # If SEED_GIST_RAW_URL is set, fetch and run the private fake-data seed script.
       # Set this env var once in the Render dashboard, trigger a deploy, then remove it.
       if [ -n "$SEED_GIST_RAW_URL" ]; then
@@ -35,21 +36,3 @@ services:
           name: stock-tracker-db
           property: connectionString
     plan: free
-
-  - type: cron
-    name: fetch-stock-prices
-    runtime: python
-    schedule: "*/10 * * * *"
-    buildCommand: pip install -r requirements.txt
-    startCommand: python manage.py fetch_prices
-    envVars:
-      - key: PYTHON_VERSION
-        value: 3.12.0
-      - key: DJANGO_SETTINGS_MODULE
-        value: stock_tracker.settings
-      - key: SECRET_KEY
-        generateValue: true
-      - key: DATABASE_URL
-        fromDatabase:
-          name: stock-tracker-db
-          property: connectionString
