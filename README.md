@@ -28,6 +28,7 @@ Built as the final project for **CS 412 — Full Stack Engineering** at Boston U
 |---|---|
 | Framework | Django 6 |
 | Database | PostgreSQL (production) / SQLite (local dev) |
+| Data warehouse | Snowflake |
 | Market data | yfinance + pandas |
 | Auth | Django built-in auth |
 | Static files | WhiteNoise |
@@ -50,17 +51,19 @@ Built as the final project for **CS 412 — Full Stack Engineering** at Boston U
 
 ## ETL Price Pipeline
 
-Previously, every page load made live API calls to yfinance — one per stock displayed. On pages like the main market overview (8 tickers) or a user's profile (N transactions + watchlist), this meant dozens of network calls blocking each response, making the app slow and fragile if yfinance was unavailable.
+The original app called yfinance on every page load — a profile page with 10 transactions and 5 watchlist stocks triggered 15 live network calls per request, making pages slow and fragile if yfinance was unavailable.
 
-The ETL pipeline decouples data fetching from request handling:
+The ETL pipeline fixes this by separating data fetching from request handling. A `fetch_prices` management command runs on each deploy and stores results in the database. Views then read from the DB instead of calling yfinance directly.
 
-- **Extract** — the `fetch_prices` management command calls `yf.Ticker(ticker).fast_info` for every stock in the database
-- **Transform** — computes `change` (price − previous close) and `change_pct`, rounds values, and skips any ticker that fails without aborting the run
-- **Load** — upserts results into the `StockPrice` table (one row per stock) using `update_or_create`
+- **Extract** — fetches `fast_info` for all 55 stocks in one pass
+- **Transform** — computes `change` and `change_pct`, skips failed tickers without aborting the run
+- **Load** — dual-writes to two destinations:
+  - **PostgreSQL** (`StockPrice`) — one row per stock, overwritten each run, used by Django views
+  - **Snowflake** (`PRICE_HISTORY`) — one row per stock per run, append-only, accumulates a full price history over time
 
-The command runs as part of every Render deploy, so prices are always populated when the app starts. Views read from `StockPrice` instead of calling yfinance directly, reducing per-request latency to a single DB query regardless of how many stocks are on the page.
+PostgreSQL handles the app's operational reads (fast, per-request). Snowflake handles analytics — trend queries, sector comparisons, volatility — which would be impractical to run against the app's primary database.
 
-The 6-month historical chart on each stock's detail page still calls yfinance live, since that data is too large to cache in this setup.
+Snowflake is optional. If `SNOWFLAKE_ACCOUNT` is not set, the pipeline skips that write and only updates PostgreSQL.
 
 ---
 
@@ -127,6 +130,12 @@ Every push to `main` triggers an automatic redeploy. The build step runs `migrat
 | `DATABASE_URL` | Yes (prod) | PostgreSQL connection string — auto-set by Render |
 | `DEBUG` | No | Set to `True` for local dev only (defaults `False`) |
 | `ALLOWED_HOSTS` | No | Comma-separated extra hosts (`.onrender.com` included by default) |
+| `SNOWFLAKE_ACCOUNT` | No | Snowflake account identifier (e.g. `abc123.us-east-1.aws`) |
+| `SNOWFLAKE_USER` | No | Snowflake login username |
+| `SNOWFLAKE_PASSWORD` | No | Snowflake login password |
+| `SNOWFLAKE_DATABASE` | No | Defaults to `STOCK_TRACKER` |
+| `SNOWFLAKE_SCHEMA` | No | Defaults to `PUBLIC` |
+| `SNOWFLAKE_WAREHOUSE` | No | Defaults to `STOCK_TRACKER_WH` |
 
 ---
 
