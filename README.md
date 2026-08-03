@@ -1,23 +1,23 @@
-# 📈 Stock Portfolio Tracker
+# Stock Portfolio Tracker
 
 A Django web app for tracking stock portfolios with live market data. Users can browse stocks, log buy/sell transactions, monitor P&L in real time, and maintain a personal watchlist.
 
-> Built as the final project for **CS 412 — Full Stack Engineering** at Boston University.
+Built as the final project for **CS 412 — Full Stack Engineering** at Boston University.
 
-**🔗 Live Demo:** [stock-tracker-ofog.onrender.com](https://stock-tracker-ofog.onrender.com)
+**Live Demo:** [stock-tracker-ofog.onrender.com](https://stock-tracker-ofog.onrender.com)
 
-> **Demo account:** username `alex_trader` · password `demo1234!`
+> Demo account: username `alex_trader` · password `demo1234!`
 
 ---
 
 ## Features
 
-- **Live market data** — real-time prices and % change via [yfinance](https://github.com/ranaroussi/yfinance)
-- **Portfolio tracking** — log buy/sell transactions and see your total P&L updated live
+- **Live market data** — prices and % change via [yfinance](https://github.com/ranaroussi/yfinance), cached every deploy
+- **Portfolio tracking** — log buy/sell transactions and see your total P&L
 - **Portfolio chart** — historical portfolio value over time (business days since first buy)
 - **Stock browser** — search and filter 55+ stocks across 9 sectors
 - **Stock detail page** — 6-month price history chart per ticker
-- **Watchlist** — add/remove stocks to a personal watchlist with live prices
+- **Watchlist** — add/remove stocks with live prices
 - **User accounts** — register, login, logout, edit profile
 
 ---
@@ -28,7 +28,7 @@ A Django web app for tracking stock portfolios with live market data. Users can 
 |---|---|
 | Framework | Django 6 |
 | Database | PostgreSQL (production) / SQLite (local dev) |
-| Live data | yfinance + pandas |
+| Market data | yfinance + pandas |
 | Auth | Django built-in auth |
 | Static files | WhiteNoise |
 | Production server | Gunicorn |
@@ -42,8 +42,25 @@ A Django web app for tracking stock portfolios with live market data. Users can 
 |---|---|
 | `Profile` | One-to-one extension of Django's `User` — bio and avatar URL |
 | `Stock` | Ticker, company name, sector, exchange |
+| `StockPrice` | Cached price, change, and % change per stock — updated on deploy |
 | `Transaction` | Buy or sell record linked to a profile and stock |
 | `Watchlist` | Many-to-many link between a profile and a stock |
+
+---
+
+## ETL Price Pipeline
+
+Previously, every page load made live API calls to yfinance — one per stock displayed. On pages like the main market overview (8 tickers) or a user's profile (N transactions + watchlist), this meant dozens of network calls blocking each response, making the app slow and fragile if yfinance was unavailable.
+
+The ETL pipeline decouples data fetching from request handling:
+
+- **Extract** — the `fetch_prices` management command calls `yf.Ticker(ticker).fast_info` for every stock in the database
+- **Transform** — computes `change` (price − previous close) and `change_pct`, rounds values, and skips any ticker that fails without aborting the run
+- **Load** — upserts results into the `StockPrice` table (one row per stock) using `update_or_create`
+
+The command runs as part of every Render deploy, so prices are always populated when the app starts. Views read from `StockPrice` instead of calling yfinance directly, reducing per-request latency to a single DB query regardless of how many stocks are on the page.
+
+The 6-month historical chart on each stock's detail page still calls yfinance live, since that data is too large to cache in this setup.
 
 ---
 
@@ -69,10 +86,11 @@ cp .env.example .env
 # Leave DATABASE_URL unset to use SQLite locally
 ```
 
-**4. Run migrations and seed stocks**
+**4. Run migrations, seed stocks, and fetch prices**
 ```bash
 python manage.py migrate
 python manage.py seed_stocks
+python manage.py fetch_prices
 ```
 
 **5. Create a superuser (optional)**
@@ -91,15 +109,13 @@ Visit [http://localhost:8000](http://localhost:8000)
 
 ## Deploying to Render
 
-The repo includes a `render.yaml` (Infrastructure as Code) that provisions everything automatically.
+The repo includes a `render.yaml` that provisions everything automatically.
 
-**1.** Push this repo to GitHub  
-**2.** In Render → **New → Blueprint** → connect the repo  
-**3.** Render reads `render.yaml` and creates:
-   - A **free PostgreSQL** database
-   - A **web service** running gunicorn
+1. Push this repo to GitHub
+2. In Render, go to **New → Blueprint** and connect the repo
+3. Render reads `render.yaml` and creates a free PostgreSQL database and a web service running Gunicorn
 
-Every `git push` to `main` triggers an automatic redeploy. The build step runs `migrate` and `seed_stocks` on each deploy (idempotent).
+Every push to `main` triggers an automatic redeploy. The build step runs `migrate`, `seed_stocks`, and `fetch_prices` on each deploy.
 
 ---
 
@@ -128,14 +144,16 @@ stock-tracker/
 │   ├── wsgi.py
 │   └── asgi.py
 └── project/                        # Main app
-    ├── models.py                   # Profile, Stock, Watchlist, Transaction
+    ├── models.py                   # Profile, Stock, StockPrice, Watchlist, Transaction
     ├── views.py                    # Class-based views
     ├── urls.py
     ├── context_processors.py
     ├── admin.py
     ├── management/
     │   └── commands/
-    │       └── seed_stocks.py      # Loads 55 stocks across 9 sectors
+    │       ├── seed_stocks.py      # Loads 55 stocks across 9 sectors
+    │       ├── fetch_prices.py     # Fetches live prices into StockPrice cache
+    │       └── create_demo_user.py # Creates alex_trader demo account
     ├── migrations/
     └── templates/project/
 ```
