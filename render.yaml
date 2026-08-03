@@ -13,6 +13,7 @@ services:
       python manage.py collectstatic --no-input
       python manage.py migrate
       python manage.py seed_stocks
+      python manage.py create_demo_user
       python manage.py fetch_prices
       # If SEED_GIST_RAW_URL is set, fetch and run the private fake-data seed script.
       # Set this env var once in the Render dashboard, trigger a deploy, then remove it.
